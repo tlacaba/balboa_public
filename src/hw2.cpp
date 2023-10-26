@@ -3,6 +3,58 @@
 
 using namespace hw2;
 
+bool pointInTriangle(Vector2 point, Vector2 p0, Vector2 p1, Vector2 p2) {
+    Vector2 n01 = Vector2{p1.y - p0.y, p0.x - p1.x};
+    Vector2 n12 = Vector2{p2.y - p1.y, p1.x - p2.x};
+    Vector2 n20 = Vector2{p0.y - p2.y, p2.x - p0.x};
+            
+    Vector2 p0q = point - p0;
+    Vector2 p1q = point - p1;
+    Vector2 p2q = point - p2;
+
+    return (
+        (dot(p0q, n01) < 0 && dot(p1q, n12) < 0 && dot(p2q, n20) < 0) || 
+        (dot(p0q, n01) > 0 && dot(p1q, n12) > 0 && dot(p2q, n20) > 0)
+    );
+}
+
+Vector3 pointToProjectedPoint(const Vector3& point) {
+    double x = - (point.x / point.z);
+    double y = - (point.y / point.z);
+    double z = -1;                  // - point.z / point.z = -1, always
+    return Vector3(x,y,z);
+}
+
+Vector2 pointToImageSpace(const Vector3& point, int width, int height, Real scalingFactor, double aspectRatio) {
+    double x = width * (point.x + scalingFactor * aspectRatio) / (2 * scalingFactor * aspectRatio);     // x" = w (x' + sa) / 2sa
+    double y = -height * (point.y - scalingFactor) / (2 * scalingFactor);                               // y" = -h (y' - s) / 2s
+    return Vector2(x,y);
+}
+
+Vector2 pointFromCameraToImage(const Vector3& point, int width, int height, Real scalingFactor, double aspectRatio) {
+    return pointToImageSpace(pointToProjectedPoint(point), width, height, scalingFactor, aspectRatio);
+}
+
+// Vector3 antiAliasing(const Vector3& pixel, Vector2 p0, Vector2 p1, Vector2 p2) {
+//     Vector3 averageColor = Vector3{0,0,0};
+
+//     for (int subPixelY = 0; subPixelY < 4; ++subPixelY) {
+//         for (int subPixelX = 0; subPixelX < 4; ++subPixelX) {
+//             Vector3 topColor;
+
+//             Vector2 subPixelCenter = Vector2{0.125 + pixel.x + subPixelX * 0.25, 0.125 + pixel.y + subPixelY * 0.25};
+
+//             // I just realized how hard it would be to implement a general use antiAliasing function, so probably just gotta use this as a template rather than a function I call lol.
+
+//             averageColor += topColor;
+//         }
+//     }
+
+//     averageColor = averageColor * (1.0/16);
+
+//     return averageColor;
+// }
+
 Image3 hw_2_1(const std::vector<std::string> &params) {
     // Homework 2.1: render a single 3D triangle
 
@@ -39,11 +91,46 @@ Image3 hw_2_1(const std::vector<std::string> &params) {
         }
     }
 
+    // fill in background
     for (int y = 0; y < img.height; y++) {
         for (int x = 0; x < img.width; x++) {
-            img(x, y) = Vector3{1, 1, 1};
+            img(x, y) = Vector3{0.5, 0.5, 0.5};
         }
     }
+
+    // going from point to projected point
+//std::cout << "Pre-projection: " << p0 << p1 << p2 << std::endl;
+//std::cout << "Post-projection: " << pointToProjectedPoint(p0) << pointToProjectedPoint(p1) << pointToProjectedPoint(p2) << std::endl;
+
+    Vector2 imageP0 = pointFromCameraToImage(p0, img.width, img.height, s, (double) img.width / img.height);
+    Vector2 imageP1 = pointFromCameraToImage(p1, img.width, img.height, s, (double) img.width / img.height);
+    Vector2 imageP2 = pointFromCameraToImage(p2, img.width, img.height, s, (double) img.width / img.height);
+
+    for (int y = 0; y < img.height; y++) {
+        for (int x = 0; x < img.width; x++) {
+            // Anti-Aliasing part:
+
+            Vector3 averageColor = Vector3{0,0,0};
+
+            for (int subPixelY = 0; subPixelY < 4; ++subPixelY) {
+                for (int subPixelX = 0; subPixelX < 4; ++subPixelX) {
+                    Vector3 topColor = Vector3{0.5, 0.5, 0.5};
+
+                    Vector2 subPixelCenter = Vector2{0.125 + x + subPixelX * 0.25, 0.125 + y + subPixelY * 0.25};
+
+                    if (pointInTriangle(subPixelCenter, imageP0, imageP1, imageP2))
+                        topColor = color;
+
+                    averageColor += topColor;
+                }
+            }
+
+            averageColor = averageColor * (1.0/16);
+
+            img(x,y) = averageColor;
+        }
+    }
+
     return img;
 }
 
