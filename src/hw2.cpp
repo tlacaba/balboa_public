@@ -131,8 +131,6 @@ Image3 hw_2_1(const std::vector<std::string> &params) {
         }
     }
 
-    // TEST TEST YO IS THIS WORKIN OR NAHHHH?!?!?!?!
-
     return img;
 }
 
