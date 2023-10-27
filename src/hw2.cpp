@@ -179,17 +179,6 @@ Image3 hw_2_2(const std::vector<std::string> &params) {
                         update Z_buffer
                         overwrite pixel color
     */
-    // NO ANTI-ALIASING
-    // // Z_buffer = Image(w,h);
-    // //     for each pixel:
-    // //         initialize with max_value
-    // Image1 Z_buffer = Image1(img.width, img.height);
-    // for (int y = 0; y < img.height; y++) {
-    //     for (int x = 0; x < img.width; x++) {
-    //         img(x, y) = Vector3{0.5,0.5,0.5};
-    //         Z_buffer(x,y) = 10e6;               // this will be positive, and for comparisons, we will be flipping values accordingly
-    //     }
-    // }
 
     // YES ANTI-ALIASING
     // Z_buffer = Image(w,h);
@@ -197,12 +186,12 @@ Image3 hw_2_2(const std::vector<std::string> &params) {
     //         initialize with max_value
     Image1 Z_buffer = Image1(img.width * 4, img.height * 4);
 
-    Image3 highSampleImg = Image3(img.width * 4, img.width *4);
+    Image3 highSampleImg = Image3(img.width * 4, img.height *4);
 
     for (int y = 0; y < highSampleImg.height; y++) {
         for (int x = 0; x < highSampleImg.width; x++) {
             highSampleImg(x, y) = Vector3{0.5,0.5,0.5};
-            Z_buffer(x,y) = 10e6;               // this will be positive, and for comparisons, we will be flipping values accordingly
+            Z_buffer(x,y) = 10e6;                           // this will be positive, and for comparisons, we will be flipping values accordingly
         }
     }
 
@@ -224,58 +213,76 @@ Image3 hw_2_2(const std::vector<std::string> &params) {
         // for each pixel
         for (int y = 0; y < img.height; ++y) {
             for (int x = 0; x < img.width; ++x) {
+                
                 for (int subY = 0; subY < 4; ++subY) {
                     for (int subX = 0; subX < 4; ++subX) {
-                        Vector2 subPixelCenter = ;
+                        Vector2 subPixelCenter = Vector2{0.125 + x + subX * 0.25, 0.125 + y + subY * 0.25};
+
+                        // if pixel in triangle
+                        if (pointInTriangle(subPixelCenter, projP0, projP1, projP2)) {
+                            // Calculate Z-depth: 
+                                // Calculating projected bary coords:
+                                    // Converting points to points in 3D (z = 0) for doing cross product to get area
+                            Vector3 subPixelCenter3 = Vector3{subPixelCenter.x, subPixelCenter.y, 0.0};
+                            Vector3 projP0_3 = Vector3{projP0.x, projP0.y, 0.0};
+                            Vector3 projP1_3 = Vector3{projP1.x, projP1.y, 0.0};
+                            Vector3 projP2_3 = Vector3{projP2.x, projP2.y, 0.0};
+
+                                        // don't need to divide by 2 since we're checking relative size
+                            double totalArea = length(cross(projP1_3 - projP0_3, projP2_3 - projP0_3));
+                            double areaP12 = length(cross(projP1_3 - subPixelCenter3, projP2_3 - subPixelCenter3));
+                            double area0P2 = length(cross(projP0_3 - subPixelCenter3, projP2_3 - subPixelCenter3));
+                            double area01P = length(cross(projP0_3 - subPixelCenter3, projP1_3 - subPixelCenter3));
+
+                                    // Getting projected bary coords!
+                            double projB0 = areaP12 / totalArea;
+                            double projB1 = area0P2 / totalArea;
+                            double projB2 = area01P / totalArea;
+
+                                // Calculating original bary coords:
+                            double bDenominator = projB0 / p0.z + projB1 / p1.z + projB2 / p2.z;
+                            double b0 = (projB0 / p0.z) / bDenominator;
+                            double b1 = (projB1 / p1.z) / bDenominator;
+                            double b2 = (projB2 / p2.z) / bDenominator;
+
+                            // Getting Z!
+                            double Z = b0 * p0.z + b1 * p1.z + b2 * p2.z;
+
+                            // if Z is beyond the clipping range and is closer than the current Z_buffer:
+                            if (z_near < -Z && -Z < Z_buffer(4 * x + subX, 4 * y + subY)) {
+                                // update Z_buffer
+                                Z_buffer(4 * x + subX, 4 * y + subY) = -Z;
+                                // overwrite pixel color
+                                highSampleImg(4 * x + subX, 4 * y + subY) = mesh.face_colors[i];
+                            }
+
+                        }
+
+
                     }
-                }
-
-                // need to put this into the further nested loop above
-                Vector2 pixelCenter = Vector2{x + 0.5, y + 0.5};
-
-                // if pixel in triangle
-                if (pointInTriangle(pixelCenter, projP0, projP1, projP2)) {
-                    // Calculate Z-depth: 
-                        // Calculating projected bary coords:
-                            // Converting points to points in 3D (z = 0) for doing cross product to get area
-                    Vector3 pixelCenter3 = Vector3{pixelCenter.x, pixelCenter.y, 0.0};
-                    Vector3 projP0_3 = Vector3{projP0.x, projP0.y, 0.0};
-                    Vector3 projP1_3 = Vector3{projP1.x, projP1.y, 0.0};
-                    Vector3 projP2_3 = Vector3{projP2.x, projP2.y, 0.0};
-
-                                // don't need to divide by 2 since we're checking relative size
-                    double totalArea = length(cross(projP1_3 - projP0_3, projP2_3 - projP0_3));
-                    double areaP12 = length(cross(projP1_3 - pixelCenter3, projP2_3 - pixelCenter3));
-                    double area0P2 = length(cross(projP0_3 - pixelCenter3, projP2_3 - pixelCenter3));
-                    double area01P = length(cross(projP0_3 - pixelCenter3, projP1_3 - pixelCenter3));
-
-                            // Getting projected bary coords!
-                    double projB0 = areaP12 / totalArea;
-                    double projB1 = area0P2 / totalArea;
-                    double projB2 = area01P / totalArea;
-
-                        // Calculating original bary coords:
-                    double bDenominator = projB0 / p0.z + projB1 / p1.z + projB2 / p2.z;
-                    double b0 = (projB0 / p0.z) / bDenominator;
-                    double b1 = (projB1 / p1.z) / bDenominator;
-                    double b2 = (projB2 / p2.z) / bDenominator;
-
-                    // Getting Z!
-                    double Z = b0 * p0.z + b1 * p1.z + b2 * p2.z;
-
-                    // if Z is beyond the clipping range and is closer than the current Z_buffer:
-                    if (z_near < -Z && -Z < Z_buffer(x,y)) {
-                        // update Z_buffer
-                        Z_buffer(x,y) = -Z;
-                        // overwrite pixel color
-                        img(x,y) = mesh.face_colors[i];
-                    }
-
                 }
 
             }
         }
 
+    }
+    
+    // Anti-aliasing averaging
+    for (int y = 0; y < img.height; ++y) {
+        for (int x = 0; x < img.width; ++x) {
+            
+            Vector3 averageColor = Vector3{0,0,0};
+
+            for (int subY = 0; subY < 4; ++subY) {
+                for (int subX = 0; subX < 4; ++subX) {
+                    averageColor += highSampleImg(4 * x + subX, 4 * y + subY);
+                }
+            }
+
+            averageColor = averageColor * (1.0/16);
+
+            img(x,y) = averageColor;
+        }
     }
 
     return img;
@@ -307,6 +314,7 @@ Image3 hw_2_3(const std::vector<std::string> &params) {
             img(x, y) = Vector3{1, 1, 1};
         }
     }
+
     return img;
 }
 
