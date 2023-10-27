@@ -166,13 +166,42 @@ Image3 hw_2_2(const std::vector<std::string> &params) {
                 overwrite color and Z_buffer if triangle is closer
     */
 
+    /* PSEUDOCODE FOR BARY MADNESS
+        for each triangle:
+            get projected vertices (camera to image space)
+            for each pixel:
+                if pixel is in projected vertices:
+                    do cross products to get areas
+                    with areas, calculate projected bary coords (equation 5)
+                    calculate original bary coords (equation 14)
+                    get Z with interpolation (equation 15)
+                    if Z is beyond close clipping range and closer than the current Z_buffer:
+                        update Z_buffer
+                        overwrite pixel color
+    */
+    // NO ANTI-ALIASING
+    // // Z_buffer = Image(w,h);
+    // //     for each pixel:
+    // //         initialize with max_value
+    // Image1 Z_buffer = Image1(img.width, img.height);
+    // for (int y = 0; y < img.height; y++) {
+    //     for (int x = 0; x < img.width; x++) {
+    //         img(x, y) = Vector3{0.5,0.5,0.5};
+    //         Z_buffer(x,y) = 10e6;               // this will be positive, and for comparisons, we will be flipping values accordingly
+    //     }
+    // }
+
+    // YES ANTI-ALIASING
     // Z_buffer = Image(w,h);
     //     for each pixel:
     //         initialize with max_value
-    Image1 Z_buffer = Image1(img.width, img.height);
-    for (int y = 0; y < img.height; y++) {
-        for (int x = 0; x < img.width; x++) {
-            img(x, y) = Vector3{0.5,0.5,0.5};
+    Image1 Z_buffer = Image1(img.width * 4, img.height * 4);
+
+    Image3 highSampleImg = Image3(img.width * 4, img.width *4);
+
+    for (int y = 0; y < highSampleImg.height; y++) {
+        for (int x = 0; x < highSampleImg.width; x++) {
+            highSampleImg(x, y) = Vector3{0.5,0.5,0.5};
             Z_buffer(x,y) = 10e6;               // this will be positive, and for comparisons, we will be flipping values accordingly
         }
     }
@@ -195,6 +224,13 @@ Image3 hw_2_2(const std::vector<std::string> &params) {
         // for each pixel
         for (int y = 0; y < img.height; ++y) {
             for (int x = 0; x < img.width; ++x) {
+                for (int subY = 0; subY < 4; ++subY) {
+                    for (int subX = 0; subX < 4; ++subX) {
+                        Vector2 subPixelCenter = ;
+                    }
+                }
+
+                // need to put this into the further nested loop above
                 Vector2 pixelCenter = Vector2{x + 0.5, y + 0.5};
 
                 // if pixel in triangle
@@ -234,9 +270,12 @@ Image3 hw_2_2(const std::vector<std::string> &params) {
                         // overwrite pixel color
                         img(x,y) = mesh.face_colors[i];
                     }
+
                 }
+
             }
         }
+
     }
 
     return img;
