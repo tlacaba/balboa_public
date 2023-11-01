@@ -319,6 +319,31 @@ Matrix4x4 parse_transformation(const json &node) {
                 });
             }
             // TODO (HW2.4): construct a lookat matrix and composite with F
+
+            Matrix4x4 LookAt = Matrix4x4::identity();
+
+            Vector3 direction = normalize(target - position);
+            Vector3 right = normalize(cross(direction, up));
+            Vector3 upOrtho = cross(right, direction);
+
+            LookAt(0,0) = right.x;
+            LookAt(1,0) = right.y;
+            LookAt(2,0) = right.z;
+
+            LookAt(0,1) = upOrtho.x;
+            LookAt(1,1) = upOrtho.y;
+            LookAt(2,1) = upOrtho.z;
+
+            LookAt(0,2) = -direction.x;
+            LookAt(1,2) = -direction.y;
+            LookAt(2,2) = -direction.z;
+
+            LookAt(0,3) = position.x;
+            LookAt(1,3) = position.y;
+            LookAt(2,3) = position.z;
+
+            F = LookAt * F;
+
         }
     }
     return F;
