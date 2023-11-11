@@ -9,6 +9,7 @@ using json = nlohmann::json;
 namespace hw3 {
 
 TriangleMesh parse_ply(const fs::path &filename) {
+    //std::ifstream ifs(filename); // Apparently not correct
     std::ifstream ifs(filename, std::ios::binary);
     tinyply::PlyFile ply_file;
     ply_file.parse_header(ifs);

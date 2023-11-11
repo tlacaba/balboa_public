@@ -115,6 +115,7 @@ TriangleMesh mesh3 {
 std::vector<TriangleMesh> meshes = {mesh0, mesh1, mesh2, mesh3};
 
 TriangleMesh parse_ply(const fs::path &filename) {
+    // std::ifstream ifs(filename); // Apparently not correct
     std::ifstream ifs(filename, std::ios::binary);
     tinyply::PlyFile ply_file;
     ply_file.parse_header(ifs);
@@ -242,21 +243,59 @@ Matrix4x4 parse_transformation(const json &node) {
                 (*scale_it)[0], (*scale_it)[1], (*scale_it)[2]
             };
             // TODO (HW2.4): construct a scale matrix and composite with F
-            UNUSED(scale); // silence warning, feel free to remove it
+            //UNUSED(scale); // silence warning, feel free to remove it
+            Matrix4x4 Scale = Matrix4x4::identity();
+
+            Scale(0,0) = scale.x;
+            Scale(1,1) = scale.y;
+            Scale(2,2) = scale.z;
+
+            F = Scale * F;
+
         } else if (auto rotate_it = it->find("rotate"); rotate_it != it->end()) {
             Real angle = (*rotate_it)[0];
             Vector3 axis = normalize(Vector3{
                 (*rotate_it)[1], (*rotate_it)[2], (*rotate_it)[3]
             });
             // TODO (HW2.4): construct a rotation matrix and composite with F
-            UNUSED(angle); // silence warning, feel free to remove it
-            UNUSED(axis); // silence warning, feel free to remove it
+            //UNUSED(angle); // silence warning, feel free to remove it
+            //UNUSED(axis); // silence warning, feel free to remove it
+
+            Matrix4x4 Rotate;
+
+            double angleR = angle / 180 * c_PI;
+
+            Rotate(0,0) = axis.x * axis.x + (1 - axis.x * axis.x) * cos(angleR);
+            Rotate(1,0) = axis.x * axis.y * (1 - cos(angleR)) + axis.z * sin(angleR);
+            Rotate(2,0) = axis.x * axis.z * (1 - cos(angleR)) - axis.y * sin(angleR);
+
+            Rotate(0,1) = axis.y * axis.x * (1 - cos(angleR)) - axis.z * sin(angleR);
+            Rotate(1,1) = axis.y * axis.y + (1 - axis.y * axis.y) * cos(angleR);
+            Rotate(2,1) = axis.y * axis.z * (1 - cos(angleR)) + axis.x * sin(angleR);
+
+            Rotate(0,2) = axis.z * axis.x * (1 - cos(angleR)) + axis.y * sin(angleR);
+            Rotate(1,2) = axis.z * axis.y * (1 - cos(angleR)) - axis.x * sin(angleR);
+            Rotate(2,2) = axis.z * axis.z + (1 - axis.z * axis.z) * cos(angleR);
+
+            Rotate(3,3) = 1;
+
+            F = Rotate * F; 
+
         } else if (auto translate_it = it->find("translate"); translate_it != it->end()) {
             Vector3 translate = Vector3{
                 (*translate_it)[0], (*translate_it)[1], (*translate_it)[2]
             };
             // TODO (HW2.4): construct a translation matrix and composite with F
-            UNUSED(translate); // silence warning, feel free to remove it
+            // UNUSED(translate); // silence warning, feel free to remove it
+
+            Matrix4x4 Translate = Matrix4x4::identity();
+            
+            Translate (0,3) = translate.x;
+            Translate (1,3) = translate.y;
+            Translate (2,3) = translate.z;
+
+            F = Translate * F;
+
         } else if (auto lookat_it = it->find("lookat"); lookat_it != it->end()) {
             Vector3 position{0, 0, 0};
             Vector3 target{0, 0, -1};
@@ -280,6 +319,31 @@ Matrix4x4 parse_transformation(const json &node) {
                 });
             }
             // TODO (HW2.4): construct a lookat matrix and composite with F
+
+            Matrix4x4 LookAt = Matrix4x4::identity();
+
+            Vector3 direction = normalize(target - position);
+            Vector3 right = normalize(cross(direction, up));
+            Vector3 upOrtho = cross(right, direction);
+
+            LookAt(0,0) = right.x;
+            LookAt(1,0) = right.y;
+            LookAt(2,0) = right.z;
+
+            LookAt(0,1) = upOrtho.x;
+            LookAt(1,1) = upOrtho.y;
+            LookAt(2,1) = upOrtho.z;
+
+            LookAt(0,2) = -direction.x;
+            LookAt(1,2) = -direction.y;
+            LookAt(2,2) = -direction.z;
+
+            LookAt(0,3) = position.x;
+            LookAt(1,3) = position.y;
+            LookAt(2,3) = position.z;
+
+            F = LookAt * F;
+
         }
     }
     return F;
