@@ -73,6 +73,22 @@ CircleScene hw1_2_scenes[] = {
     hw1_2_scene_4
 };
 
+Matrix3x3 scalarMult(Matrix3x3 matrix, double scalar) {
+    Matrix3x3 result;
+    result(0,0) = matrix(0,0) * scalar;
+    result(0,1) = matrix(0,1) * scalar;
+    result(0,2) = matrix(0,2) * scalar;
+    result(1,0) = matrix(1,0) * scalar;
+    result(1,1) = matrix(1,1) * scalar;
+    result(1,2) = matrix(1,2) * scalar;
+    result(2,0) = matrix(2,0) * scalar;
+    result(2,1) = matrix(2,1) * scalar;
+    result(2,2) = matrix(2,2);
+    return result;
+}
+
+double SCALAR = 1.0;
+
 Matrix3x3 parse_transformation(const json &node) {
     // Homework 1.4: parse a sequence of linear transformation and 
     // combine them into an affine matrix
@@ -90,24 +106,85 @@ Matrix3x3 parse_transformation(const json &node) {
             };
             // TODO (HW1.4): construct a scale matrix and composite with F
             UNUSED(scale); // silence warning, feel free to remove it
+            
+            // ANIMATION
+            scale = scale * SCALAR;
+
+            Matrix3x3 Scale = Matrix3x3::identity();
+
+            Scale(0,0) = scale.x;
+            Scale(1,1) = scale.y;
+
+//std::cout << "Scale: " << Scale << std::endl;
+
+            F = Scale * F;
+
         } else if (auto rotate_it = it->find("rotate"); rotate_it != it->end()) {
             Real angle = *rotate_it;
             // TODO (HW1.4): construct a rotation matrix and composite with F
             UNUSED(angle); // silence warning, feel free to remove it
+
+            // ANIMATION
+            angle *= SCALAR;
+
+            Matrix3x3 Rotation = Matrix3x3::identity();
+
+            Rotation(0,0) = cos(angle/180*c_PI);
+            Rotation(0,1) = -sin(angle/180*c_PI);
+            Rotation(1,0) = sin(angle/180*c_PI);
+            Rotation(1,1) = cos(angle/180*c_PI);
+
+//std::cout << "Rotation: " << Rotation << std::endl;
+
+            F = Rotation * F;
+
         } else if (auto translate_it = it->find("translate"); translate_it != it->end()) {
             Vector2 translate = Vector2{
                 (*translate_it)[0], (*translate_it)[1]
             };
             // TODO (HW1.4): construct a translation matrix and composite with F
             UNUSED(translate); // silence warning, feel free to remove it
+
+            // ANIMATION
+            translate = translate * SCALAR;
+
+            Matrix3x3 Translate = Matrix3x3::identity();
+
+            Translate(0,2) = translate.x;
+            Translate(1,2) = translate.y;
+
+//std::cout << "Translate: " << Translate << std::endl;
+
+            F = Translate * F;
+
         } else if (auto shearx_it = it->find("shear_x"); shearx_it != it->end()) {
             Real shear_x = *shearx_it;
             // TODO (HW1.4): construct a shear matrix (x direction) and composite with F
             UNUSED(shear_x); // silence warning, feel free to remove it
+
+            // ANIMATION
+            shear_x *= SCALAR;
+
+            Matrix3x3 ShearX = Matrix3x3::identity();
+
+            ShearX(0,1) = shear_x;
+
+            F = ShearX * F;
+
         } else if (auto sheary_it = it->find("shear_y"); sheary_it != it->end()) {
             Real shear_y = *sheary_it;
             // TODO (HW1.4): construct a shear matrix (y direction) and composite with F
             UNUSED(shear_y); // silence warning, feel free to remove it
+
+            // ANIMATION
+            shear_y *= SCALAR;
+
+            Matrix3x3 ShearY = Matrix3x3::identity();
+
+            ShearY(1,0) = shear_y;
+
+            F = ShearY * F;
+
         }
     }
     return F;
