@@ -10,6 +10,9 @@ using namespace hw3;
 // do we have to prototype this outside of hw_3_1?
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 
+// This is ran in render loop to take in input
+void processInput(GLFWwindow* window);
+
 void hw_3_1(const std::vector<std::string> &params) {
     // HW 3.1: Open a window using GLFW
     
@@ -50,8 +53,11 @@ void hw_3_1(const std::vector<std::string> &params) {
     // ==== RENDER LOOP ==== //
 
     while (!glfwWindowShouldClose(window)) {
-        glClearColor(0.2f, 0.2f, 0.8f, 1.0f);
+        processInput(window);
+
+        glClearColor(0.7f, 0.7f, 0.7f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -64,6 +70,7 @@ void hw_3_1(const std::vector<std::string> &params) {
 
 void hw_3_2(const std::vector<std::string> &params) {
     // HW 3.2: Render a single 2D triangle
+    
 }
 
 void hw_3_3(const std::vector<std::string> &params) {
@@ -88,4 +95,10 @@ void hw_3_4(const std::vector<std::string> &params) {
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
+}
+
+// So far, just handling escape
+void processInput(GLFWwindow* window) {
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) 
+        glfwSetWindowShouldClose(window, true);
 }
