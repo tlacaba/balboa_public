@@ -5,6 +5,14 @@
 
 using namespace hw3;
 
+// ==== Debugging ==== //
+
+void error_callback(int code, const char* description)
+{
+    std::cout << "Error code: " << code << std::endl;
+    std::cout << "Description: " << description << std::endl;
+}
+
 // ==== RESIZING OF WINDOW ==== //
 
 // do we have to prototype this outside of hw_3_1?
@@ -12,6 +20,10 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 
 void hw_3_1(const std::vector<std::string> &params) {
     // HW 3.1: Open a window using GLFW
+
+    // ==== Debugging ==== //
+
+    glfwSetErrorCallback(error_callback);
     
     // ==== INITIALIZING GLFW ==== //
 
