@@ -5,20 +5,6 @@
 
 using namespace hw3;
 
-// vertex shader code to be compiled dynamically
-const char* vertexShaderSource = "#version 330 core\n"
-    "layout (location = 0) in vec3 aPos;\n"
-    "void main()\n"
-    "{\n"
-        "gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
-    "}\n";
-
-const char* fragmentShaderSource = "#version 330 core\n"
-    "out vec4 FragColor;\n"
-    "void main()\n"
-    "{\n"
-        "FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
-    "}\n";
 
 // Debugging 
 void error_callback(int code, const char* description)
@@ -90,6 +76,25 @@ void hw_3_1(const std::vector<std::string> &params) {
 
 void hw_3_2(const std::vector<std::string> &params) {
     // HW 3.2: Render a single 2D triangle
+
+    // vertex shader code to be compiled dynamically
+    const char* vertexShaderSource = "#version 330 core\n"
+        "layout (location = 0) in vec3 aPos;\n"
+        "uniform float time;\n"
+        "void main()\n"
+        "{\n"
+            "float rotX = cos(time);\n"
+            "float rotY = sin(time);\n"
+            "gl_Position = vec4(rotX * aPos.x - rotY * aPos.y, rotY * aPos.x + rotX * aPos.y , aPos.z, 1.0);\n"
+        "}\n";
+
+    const char* fragmentShaderSource = "#version 330 core\n"
+        "out vec4 FragColor;\n"
+        "void main()\n"
+        "{\n"
+            "FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
+        "}\n";
+
     // Debugging 
 
     glfwSetErrorCallback(error_callback);
@@ -102,7 +107,7 @@ void hw_3_2(const std::vector<std::string> &params) {
     // glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // for Mac OS X
 
     // MAKING WINDOW 
-    GLFWwindow* window = glfwCreateWindow(800, 600, "LearnOpenGL", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(800, 800, "LearnOpenGL", NULL, NULL);
     if (window == NULL) {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -118,7 +123,7 @@ void hw_3_2(const std::vector<std::string> &params) {
     }
 
     //TELLING OPENGL SIZE OF WINDOW
-    glViewport(0, 0, 800, 600);
+    glViewport(0, 0, 800, 800);
 
     //REGISTERING CALLBACK FUNCTION FOR FRAME RESIZING
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
@@ -184,7 +189,7 @@ void hw_3_2(const std::vector<std::string> &params) {
     float vertices[] = {
         -0.5f, -0.5f, 0.0f,
          0.5f, -0.5f, 0.0f,
-         0.5f,  0.5f, 0.0f
+         0.0f,  0.5f, 0.0f
     };
 
     // Generate VBO to send data to VRAM
@@ -219,6 +224,11 @@ void hw_3_2(const std::vector<std::string> &params) {
 
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
+
+        double timeValue = glfwGetTime();
+        int vertexRotationLocation = glGetUniformLocation(shaderProgram, "time");
+        glUniform1f(vertexRotationLocation, timeValue);
+
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
         glfwSwapBuffers(window);
