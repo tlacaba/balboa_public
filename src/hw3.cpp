@@ -11,11 +11,7 @@ using namespace hw3;
 
 
 // Debugging 
-void error_callback(int code, const char* description)
-{
-    std::cout << "Error code: " << code << std::endl;
-    std::cout << "Description: " << description << std::endl;
-}
+void error_callback(int code, const char* description);
 
 // RESIZING OF WINDOW 
 // do we have to prototype this outside of hw_3_1?
@@ -246,6 +242,10 @@ void hw_3_2(const std::vector<std::string> &params) {
 
 
 
+unsigned int makeShaderProgram(const GLchar** vertexShaderSourceAddress, const GLchar** fragementShaderSourceAddress);
+
+GLFWwindow* initGlfwAndWindow(int sceneWidth, int sceneHeight);
+
 void hw_3_3(const std::vector<std::string> &params) {
     // HW 3.3: Render a scene
     if (params.size() == 0) {
@@ -266,6 +266,7 @@ void hw_3_3(const std::vector<std::string> &params) {
             "gl_Position = projection * view * model * vec4(aPos, 1.0f);\n"
         "}\n";
 
+    // fragment shader code to be compiled dynamically
     // TODO: handle vertex colors
     const char* fragmentShaderSource = "#version 330 core\n"
         "out vec4 FragColor;\n"
@@ -274,42 +275,124 @@ void hw_3_3(const std::vector<std::string> &params) {
             "FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
         "}\n";
 
-    // Debugging 
-
-    glfwSetErrorCallback(error_callback);
-    
-    // INITIALIZING GLFW 
-    glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    // glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // for Mac OS X
-
     // MAKING WINDOW 
     int sceneWidth = scene.camera.resolution.x;
     int sceneHeight = scene.camera.resolution.y;
+    
+    GLFWwindow* window = initGlfwAndWindow(sceneWidth, sceneHeight);
 
-    GLFWwindow* window = glfwCreateWindow(sceneWidth, sceneHeight, "LearnOpenGL", NULL, NULL);
-    if (window == NULL) {
-        std::cout << "Failed to create GLFW window" << std::endl;
-        glfwTerminate();
-        return; // -1, but we can't return any value
+    // MAKING SHADER PROGRAM
+    unsigned int shaderProgram = makeShaderProgram(&vertexShaderSource, &fragmentShaderSource);
+
+    // TODO: repeat this process for multiple meshes
+
+    // set up vertex data and buffers and configure vertex attributes
+
+    unsigned int VBO, VAO, EBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+
+    glBindVertexArray(VAO);
+
+    // TODO: see if this is right
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, scene.meshes[0].vertices.size() * sizeof(Vector3f), scene.meshes[0].vertices.data(), GL_STATIC_DRAW);
+    // we're saying we're gonna write numVertices * size of Vector3f's, but isn't the actual size of vertices larger than that since they're just Vector3's (doubles not floats?) IT'S ACTUALLY JUST Vector3f so we're chillin
+
+    // TODO: see if this is right
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, scene.meshes[0].faces.size() * 3 * sizeof(Vector3f), scene.meshes[0].faces.data(), GL_STATIC_DRAW);
+    // don't i have to multiply faces.size by 3 since there are 3 indices per?
+
+    // position attribute (gl float, not double?), set stride to NULL, be careful
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, NULL, (void*)0);
+    glEnableVertexAttribArray(0);
+
+    Vector3f bgColor = scene.background;
+
+//std::cout << "meshes: " << (scene.meshes.size()) << std::endl;
+    
+    // can i put this out here? it doesn't change over time im pretty sure
+    float z_far = scene.camera.z_far;
+    float z_near = scene.camera.z_near;
+    glm::mat4 Projection;
+    Projection[0][0] = 1.0f / ((float)sceneWidth / sceneHeight * scene.camera.s);
+    Projection[1][1] = 1.0f / scene.camera.s;
+    Projection[2][2] = - z_far / (z_far - z_near);
+    Projection[3][2] = - z_far * z_near / (z_far - z_near);
+    Projection[2][3] = - 1.0f;
+
+    // RENDER LOOP 
+    while (!glfwWindowShouldClose(window)) {
+        processInput(window);
+
+        glClearColor(bgColor.x, bgColor.y, bgColor.z, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        glUseProgram(shaderProgram);
+        glBindVertexArray(VAO);
+
+        // TODO: see how to convert this easily
+
+        // How to repeat this for each mesh?
+        Matrix4x4f Model = scene.meshes[0].model_matrix;
+        Matrix4x4f View = inverse(scene.camera.cam_to_world);
+
+        unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, Model.ptr());
+        unsigned int viewLoc = glGetUniformLocation(shaderProgram, "view");
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, View.ptr());
+        unsigned int projectionLoc = glGetUniformLocation(shaderProgram, "projection");
+        glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(Projection));
+
+        //glDrawArrays(GL_TRIANGLES, 0, 3);
+        glDrawElements(GL_TRIANGLES, scene.meshes[0].faces.size() * 3, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+
+        glfwSwapBuffers(window);
+        glfwPollEvents();
     }
-    glfwMakeContextCurrent(window);
 
-    // INITIALIZING GLAD 
-    // do this before calling any OpenGL function, so shoud this be before initialization of GLFW? NEGATIVE.
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        std::cout << "Failed to initialize GLAD" << std::endl;
-        return; // -1, but we can't return any value
+    // CLEAN GLFW RESOURCES 
+    glfwTerminate();
+    return; // 0
+}
+
+
+
+void hw_3_4(const std::vector<std::string> &params) {
+    // HW 3.4: Render a scene with lighting
+    if (params.size() == 0) {
+        return;
     }
 
-    //TELLING OPENGL SIZE OF WINDOW
-    glViewport(0, 0, sceneWidth, sceneWidth);
+    Scene scene = parse_scene(params[0]);
+    std::cout << scene << std::endl;
+}
 
-    //REGISTERING CALLBACK FUNCTION FOR FRAME RESIZING
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
+
+
+// ==================================================
+// Functions!
+
+void error_callback(int code, const char* description) {
+    std::cout << "Error code: " << code << std::endl;
+    std::cout << "Description: " << description << std::endl;
+}
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+    glViewport(0, 0, width, height);
+}
+
+// So far, just handling escape
+void processInput(GLFWwindow* window) {
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) 
+        glfwSetWindowShouldClose(window, true);
+}
+
+unsigned int makeShaderProgram(const GLchar** vertexShaderSourceAddress, const GLchar** fragementShaderSourceAddress) {
     // building and compiling the shader program
     // =========================================
     // making vertex shader
@@ -317,7 +400,7 @@ void hw_3_3(const std::vector<std::string> &params) {
     vertexShader = glCreateShader(GL_VERTEX_SHADER);
 
     // attach code to shader object and compile it
-    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+    glShaderSource(vertexShader, 1, vertexShaderSourceAddress, NULL);
     glCompileShader(vertexShader);
 
     // test for failure in compilation
@@ -333,7 +416,7 @@ void hw_3_3(const std::vector<std::string> &params) {
     // do same for fragment shader
     unsigned int fragmentShader;
     fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+    glShaderSource(fragmentShader, 1, fragementShaderSourceAddress, NULL);
     glCompileShader(fragmentShader);
 
     glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
@@ -358,98 +441,48 @@ void hw_3_3(const std::vector<std::string> &params) {
         std::cout << "ERROR::PROGRAM::SHADER::COMPILATION_FAILED\n" << infoLog << std::endl;
     }
 
-    //glUseProgram(shaderProgram); // dont think i should use like this yet
-
     // don't need these anymore
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    // set up vertext data and buffers and configure vertex attributes
+    return shaderProgram;
+}
+
+GLFWwindow* initGlfwAndWindow(int sceneWidth, int sceneHeight) {
+    // Debugging 
+    glfwSetErrorCallback(error_callback);
     
-    // Vertices of triangles WE'RE GONNA BE USING FROM SCENES
-    // float vertices[] = {
-    //      0.5f,  0.5f, 0.0f,  // top right
-    //      0.5f, -0.5f, 0.0f,  // bottom right
-    //     -0.5f, -0.5f, 0.0f,  // bottom left
-    //     -0.5f,  0.5f, 0.0f   // top left  
-    // };
-    // unsigned int indices[] = {  // note that we start from 0!
-    //     0, 1, 3,   // first triangle
-    //     1, 2, 3    // second triangle
-    // };  
+    // INITIALIZING GLFW 
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    // glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE); // for Mac OS X
 
-    // TODO: repeat this process for multiple meshes
+    GLFWwindow* window = glfwCreateWindow(sceneWidth, sceneHeight, "LearnOpenGL", NULL, NULL);
+    if (window == NULL) {
+        std::cout << "Failed to create GLFW window" << std::endl;
+        glfwTerminate();
+        return window; // -1, but we can't return any value
+    }
+    glfwMakeContextCurrent(window);
 
-    unsigned int VBO, VAO, EBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
-
-    glBindVertexArray(VAO);
-
-    // TODO: see if this is right
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, scene.meshes[0].vertices.size() * sizeof(Vector3f), scene.meshes[0].vertices.data(), GL_STATIC_DRAW);
-    // we're saying we're gonna write numVertices * size of Vector3f's, but isn't the actual size of vertices larger than that since they're just Vector3's (doubles not floats?)
-
-    // TODO: see if this is right
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, scene.meshes[0].faces.size() * 3 * sizeof(Vector3f), scene.meshes[0].faces.data(), GL_STATIC_DRAW);
-    // don't i have to multiply faces.size by 3 since there are 3 indices per?
-
-    // position attribute (gl float, not double?), set stride to NULL, be careful
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, NULL, (void*)0);
-    glEnableVertexAttribArray(0);
-
-    Vector3f bgColor = scene.background;
-
-//std::cout << "meshes: " << (scene.meshes.size()) << std::endl;
-    
-    // can i put this out here? it doesn't change over time im pretty sure
-    float z_far = scene.camera.z_far;
-    float z_near = scene.camera.z_near;
-    glm::mat4 projection;
-    projection[0][0] = 1.0f / ((float)sceneWidth / sceneHeight * scene.camera.s);
-    projection[1][1] = 1.0f / scene.camera.s;
-    projection[2][2] = - z_far / (z_far - z_near);
-    projection[3][2] = - z_far * z_near / (z_far - z_near);
-    projection[2][3] = - 1.0f;
-
-    // RENDER LOOP 
-    while (!glfwWindowShouldClose(window)) {
-        processInput(window);
-
-        glClearColor(bgColor.x, bgColor.y, bgColor.z, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        glUseProgram(shaderProgram);
-        glBindVertexArray(VAO);
-
-        // TODO: see how to convert this easily
-
-        // How to repeat this for each mesh?
-        glm::mat4 model; //= scene.meshes[0].model_matrix;
-        glm::mat4 view; //= inverse(scene.camera.cam_to_world);
-
-        unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-        unsigned int viewLoc = glGetUniformLocation(shaderProgram, "view");
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-        unsigned int projectionLoc = glGetUniformLocation(shaderProgram, "projection");
-        glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
-        //glDrawArrays(GL_TRIANGLES, 0, 3);
-        glDrawElements(GL_TRIANGLES, scene.meshes[0].faces.size() * 3, GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
-
-        glfwSwapBuffers(window);
-        glfwPollEvents();
+    // INITIALIZING GLAD 
+    // do this before calling any OpenGL function, so shoud this be before initialization of GLFW? NEGATIVE.
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        std::cout << "Failed to initialize GLAD" << std::endl;
+        return window; // -1, but we can't return any value
     }
 
-    // CLEAN GLFW RESOURCES 
-    glfwTerminate();
-    return; // 0
+    //TELLING OPENGL SIZE OF WINDOW
+    glViewport(0, 0, sceneWidth, sceneWidth);
+
+    //REGISTERING CALLBACK FUNCTION FOR FRAME RESIZING
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+    return window;
 }
+
 
 // ================================
 // Old code:
@@ -483,23 +516,3 @@ void hw_3_3(const std::vector<std::string> &params) {
 
     // glBindVertexArray(0);
 // ================================
-
-void hw_3_4(const std::vector<std::string> &params) {
-    // HW 3.4: Render a scene with lighting
-    if (params.size() == 0) {
-        return;
-    }
-
-    Scene scene = parse_scene(params[0]);
-    std::cout << scene << std::endl;
-}
-
-void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-    glViewport(0, 0, width, height);
-}
-
-// So far, just handling escape
-void processInput(GLFWwindow* window) {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) 
-        glfwSetWindowShouldClose(window, true);
-}
