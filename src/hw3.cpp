@@ -292,37 +292,56 @@ void hw_3_3(const std::vector<std::string> &params) {
     unsigned int shaderProgram = makeShaderProgram(&vertexShaderSource, &fragmentShaderSource);
 
     // TODO: repeat this process for multiple meshes
+    for (unsigned int i = 0; i < scene.meshes.size(); ++i) {
+        TriangleMesh mesh = scene.meshes[i];
 
-    // set up vertex data and buffers and configure vertex attributes
+std::cout << "DEBUG: ITERATION OUTSIDE RENDER" << std::endl;
+        // set up vertex data and buffers and configure vertex attributes
+        // unsigned int VBO_vertex, VBO_color, VAO, EBO;
+        glGenVertexArrays(1, &(mesh.VAO));
+std::cout << "0: " << glGetError() << std::endl;
+        glGenBuffers(1, &(mesh.VBO_vertex));
+std::cout << "1: " << glGetError() << std::endl;
+        glGenBuffers(1, &(mesh.VBO_color));
+std::cout << "2: " << glGetError() << std::endl;
+        glGenBuffers(1, &(mesh.EBO));
+std::cout << "3: " << glGetError() << std::endl;
 
-    unsigned int VBO_vertex, VBO_color, VAO, EBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO_vertex);
-    glGenBuffers(1, &VBO_color);
-    glGenBuffers(1, &EBO);
+        glBindVertexArray(mesh.VAO);
+std::cout << "4: " << glGetError() << std::endl;
 
-    glBindVertexArray(VAO);
+        // TODO: see if this is right
+        glBindBuffer(GL_ARRAY_BUFFER, mesh.VBO_vertex);
+std::cout << "5: " << glGetError() << std::endl;
+        glBufferData(GL_ARRAY_BUFFER, mesh.vertices.size() * sizeof(Vector3f), mesh.vertices.data(), GL_STATIC_DRAW);
+std::cout << "6: " << glGetError() << std::endl;
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vector3f), (void*)0);
+std::cout << "7: " << glGetError() << std::endl;
+        glEnableVertexAttribArray(0);
+std::cout << "8: " << glGetError() << std::endl;
+        // we're saying we're gonna write numVertices * size of Vector3f's, but isn't the actual size of vertices larger than that since they're just Vector3's (doubles not floats?) IT'S ACTUALLY JUST Vector3f so we're chillin
 
-    // TODO: see if this is right
-    glBindBuffer(GL_ARRAY_BUFFER, VBO_vertex);
-    glBufferData(GL_ARRAY_BUFFER, scene.meshes[0].vertices.size() * sizeof(Vector3f), scene.meshes[0].vertices.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vector3f), (void*)0);
-    glEnableVertexAttribArray(0);
-    // we're saying we're gonna write numVertices * size of Vector3f's, but isn't the actual size of vertices larger than that since they're just Vector3's (doubles not floats?) IT'S ACTUALLY JUST Vector3f so we're chillin
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO_color);
-    glBufferData(GL_ARRAY_BUFFER, scene.meshes[0].vertex_colors.size() * sizeof(Vector3f), scene.meshes[0].vertex_colors.data(), GL_STATIC_DRAW);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vector3f), (void*)0);
-    glEnableVertexAttribArray(1);
+        glBindBuffer(GL_ARRAY_BUFFER, mesh.VBO_color);
+std::cout << "9: " << glGetError() << std::endl;
+        glBufferData(GL_ARRAY_BUFFER, mesh.vertex_colors.size() * sizeof(Vector3f), mesh.vertex_colors.data(), GL_STATIC_DRAW);
+std::cout << "10: " << glGetError() << std::endl;
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vector3f), (void*)0);
+std::cout << "11: " << glGetError() << std::endl;
+        glEnableVertexAttribArray(1);
+std::cout << "12: " << glGetError() << std::endl;
 
 
-    // TODO: see if this is right
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, scene.meshes[0].faces.size() * 3 * sizeof(Vector3f), scene.meshes[0].faces.data(), GL_STATIC_DRAW);
-    // don't i have to multiply faces.size by 3 since there are 3 indices per?
+        // TODO: see if this is right
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.EBO);
+std::cout << "13: " << glGetError() << std::endl;
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh.faces.size() * 3 * sizeof(Vector3f), mesh.faces.data(), GL_STATIC_DRAW);
+std::cout << "14: " << glGetError() << std::endl;
+        // don't i have to multiply faces.size by 3 since there are 3 indices per?
 
-    // position attribute (gl float, not double?) NOPE, set stride to NULL, be careful
-    // moved to each part?
+        //glBindBuffer(GL_ARRAY_BUFFER, 0);
+        //glBindVertexArray(0);
+    }
+
 
     Vector3f bgColor = scene.background;
 
@@ -338,35 +357,53 @@ void hw_3_3(const std::vector<std::string> &params) {
     Projection(2,3) = - (float)z_far * (float)z_near / ((float)z_far - (float)z_near);
     Projection(3,2) = - 1.0f;
 
-    // RENDER LOOP 
+std::cout << "DEBUG: ITERATION OUTSIDE RENDER" << std::endl;
+
+    // RENDER LOOP
+//int count = 0;
+    //while (!glfwWindowShouldClose(window) && count < 10) {
     while (!glfwWindowShouldClose(window)) {
         processInput(window);
 
         glClearColor(bgColor.x, bgColor.y, bgColor.z, 1.0f);
+std::cout << "in 0: " << glGetError() << std::endl;
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+std::cout << "in 1: " << glGetError() << std::endl;
 
         glUseProgram(shaderProgram);
-        glBindVertexArray(VAO);
+std::cout << "in 2: " << glGetError() << std::endl;
 
-        // TODO: see how to convert this easily
-
-        // How to repeat this for each mesh?
-        Matrix4x4f Model = scene.meshes[0].model_matrix;
         Matrix4x4f View = inverse(scene.camera.cam_to_world);
 
-        unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, Model.ptr());
-        unsigned int viewLoc = glGetUniformLocation(shaderProgram, "view");
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, View.ptr());
-        unsigned int projectionLoc = glGetUniformLocation(shaderProgram, "projection");
-        glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, Projection.ptr());
+        for (unsigned int i = 0; i < scene.meshes.size(); ++i) {
+            TriangleMesh mesh = scene.meshes[i];
+            glBindVertexArray(mesh.VAO);
+std::cout << "in 3: " << glGetError() << std::endl;
 
-        //glDrawArrays(GL_TRIANGLES, 0, 3);
-        glDrawElements(GL_TRIANGLES, scene.meshes[0].faces.size() * 3, GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
+            Matrix4x4f Model = mesh.model_matrix;
+
+            unsigned int modelLoc = glGetUniformLocation(shaderProgram, "model");
+            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, Model.ptr());
+std::cout << "in 4: " << glGetError() << std::endl;
+            unsigned int viewLoc = glGetUniformLocation(shaderProgram, "view");
+            glUniformMatrix4fv(viewLoc, 1, GL_FALSE, View.ptr());
+std::cout << "in 5: " << glGetError() << std::endl;
+            unsigned int projectionLoc = glGetUniformLocation(shaderProgram, "projection");
+            glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, Projection.ptr());
+std::cout << "in 6: " << glGetError() << std::endl;
+
+            //glDrawArrays(GL_TRIANGLES, 0, 3);
+            glDrawElements(GL_TRIANGLES, mesh.faces.size() * 3, GL_UNSIGNED_INT, 0);
+std::cout << "in 7: " << glGetError() << std::endl;
+            glBindVertexArray(0);
+std::cout << "in 8: " << glGetError() << std::endl;
+        }
+        
 
         glfwSwapBuffers(window);
         glfwPollEvents();
+        
+//++count;
     }
 
     // CLEAN GLFW RESOURCES 
