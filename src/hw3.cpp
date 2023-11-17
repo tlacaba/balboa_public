@@ -246,6 +246,7 @@ unsigned int makeShaderProgram(const GLchar** vertexShaderSourceAddress, const G
 
 GLFWwindow* initGlfwAndWindow(int sceneWidth, int sceneHeight);
 
+
 void hw_3_3(const std::vector<std::string> &params) {
     // HW 3.3: Render a scene
     if (params.size() == 0) {
@@ -258,21 +259,24 @@ void hw_3_3(const std::vector<std::string> &params) {
     // vertex shader code to be compiled dynamically
     const char* vertexShaderSource = "#version 330 core\n"
         "layout (location = 0) in vec3 aPos;\n"
+        "layout (location = 1) in vec3 aColor;\n"
+        "out vec3 ourColor;\n"
         "uniform mat4 model;\n"
         "uniform mat4 view;\n"
         "uniform mat4 projection;\n"
         "void main()\n"
         "{\n"
             "gl_Position = projection * view * model * vec4(aPos, 1.0f);\n"
+            "ourColor = aColor;\n"
         "}\n";
 
     // fragment shader code to be compiled dynamically
-    // TODO: handle vertex colors
     const char* fragmentShaderSource = "#version 330 core\n"
         "out vec4 FragColor;\n"
+        "in vec3 ourColor;\n"
         "void main()\n"
         "{\n"
-            "FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
+            "FragColor = vec4(ourColor, 1.0f);\n"
         "}\n";
 
     // MAKING WINDOW 
@@ -281,6 +285,9 @@ void hw_3_3(const std::vector<std::string> &params) {
     
     GLFWwindow* window = initGlfwAndWindow(sceneWidth, sceneHeight);
 
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_FRAMEBUFFER_SRGB);
+
     // MAKING SHADER PROGRAM
     unsigned int shaderProgram = makeShaderProgram(&vertexShaderSource, &fragmentShaderSource);
 
@@ -288,47 +295,55 @@ void hw_3_3(const std::vector<std::string> &params) {
 
     // set up vertex data and buffers and configure vertex attributes
 
-    unsigned int VBO, VAO, EBO;
+    unsigned int VBO_vertex, VBO_color, VAO, EBO;
     glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &VBO_vertex);
+    glGenBuffers(1, &VBO_color);
     glGenBuffers(1, &EBO);
 
     glBindVertexArray(VAO);
 
     // TODO: see if this is right
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO_vertex);
     glBufferData(GL_ARRAY_BUFFER, scene.meshes[0].vertices.size() * sizeof(Vector3f), scene.meshes[0].vertices.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vector3f), (void*)0);
+    glEnableVertexAttribArray(0);
     // we're saying we're gonna write numVertices * size of Vector3f's, but isn't the actual size of vertices larger than that since they're just Vector3's (doubles not floats?) IT'S ACTUALLY JUST Vector3f so we're chillin
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO_color);
+    glBufferData(GL_ARRAY_BUFFER, scene.meshes[0].vertex_colors.size() * sizeof(Vector3f), scene.meshes[0].vertex_colors.data(), GL_STATIC_DRAW);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vector3f), (void*)0);
+    glEnableVertexAttribArray(1);
+
 
     // TODO: see if this is right
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, scene.meshes[0].faces.size() * 3 * sizeof(Vector3f), scene.meshes[0].faces.data(), GL_STATIC_DRAW);
     // don't i have to multiply faces.size by 3 since there are 3 indices per?
 
-    // position attribute (gl float, not double?), set stride to NULL, be careful
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, NULL, (void*)0);
-    glEnableVertexAttribArray(0);
+    // position attribute (gl float, not double?) NOPE, set stride to NULL, be careful
+    // moved to each part?
 
     Vector3f bgColor = scene.background;
 
 //std::cout << "meshes: " << (scene.meshes.size()) << std::endl;
-    
     // can i put this out here? it doesn't change over time im pretty sure
     float z_far = scene.camera.z_far;
     float z_near = scene.camera.z_near;
-    glm::mat4 Projection;
-    Projection[0][0] = 1.0f / ((float)sceneWidth / sceneHeight * scene.camera.s);
-    Projection[1][1] = 1.0f / scene.camera.s;
-    Projection[2][2] = - z_far / (z_far - z_near);
-    Projection[3][2] = - z_far * z_near / (z_far - z_near);
-    Projection[2][3] = - 1.0f;
+
+    Matrix4x4f Projection;
+    Projection(0,0) = 1.0f / ((float)sceneWidth / (float)sceneHeight * (float)scene.camera.s);
+    Projection(1,1) = 1.0f / (float)scene.camera.s;
+    Projection(2,2) = - (float)z_far / ((float)z_far - (float)z_near);
+    Projection(2,3) = - (float)z_far * (float)z_near / ((float)z_far - (float)z_near);
+    Projection(3,2) = - 1.0f;
 
     // RENDER LOOP 
     while (!glfwWindowShouldClose(window)) {
         processInput(window);
 
         glClearColor(bgColor.x, bgColor.y, bgColor.z, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glUseProgram(shaderProgram);
         glBindVertexArray(VAO);
@@ -344,7 +359,7 @@ void hw_3_3(const std::vector<std::string> &params) {
         unsigned int viewLoc = glGetUniformLocation(shaderProgram, "view");
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, View.ptr());
         unsigned int projectionLoc = glGetUniformLocation(shaderProgram, "projection");
-        glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(Projection));
+        glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, Projection.ptr());
 
         //glDrawArrays(GL_TRIANGLES, 0, 3);
         glDrawElements(GL_TRIANGLES, scene.meshes[0].faces.size() * 3, GL_UNSIGNED_INT, 0);
@@ -475,10 +490,10 @@ GLFWwindow* initGlfwAndWindow(int sceneWidth, int sceneHeight) {
     }
 
     //TELLING OPENGL SIZE OF WINDOW
-    glViewport(0, 0, sceneWidth, sceneWidth);
+    glViewport(0, 0, sceneWidth, sceneHeight);
 
     //REGISTERING CALLBACK FUNCTION FOR FRAME RESIZING
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    //glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
     return window;
 }
