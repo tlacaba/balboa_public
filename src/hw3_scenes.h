@@ -15,7 +15,7 @@ struct TriangleMesh {
     std::vector<Vector3f> vertex_normals; // vertex normals (for lighting in 3.4)
     Matrix4x4f model_matrix;
 
-    unsigned int VBO_vertex, VBO_color, VAO, EBO;
+    //unsigned int VBO_vertex, VBO_color, VAO, EBO;
 };
 
 struct Camera {
