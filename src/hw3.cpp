@@ -427,10 +427,7 @@ void hw_3_4(const std::vector<std::string> &params) {
         "}\n";
 
 
-        // "uniform float time;\n"
-            // "float rotX = cos(time);\n"
-            // "float rotY = sin(time);\n"
-            // "lightDir = normalize(vec3(rotX * 1 - rotY * 1, rotY * 1 + rotX * 1 , 1));\n"
+        
     // fragment shader code to be compiled dynamically
     const char* fragmentShaderSource = "#version 330 core\n"
         "out vec4 FragColor;\n"
@@ -439,12 +436,16 @@ void hw_3_4(const std::vector<std::string> &params) {
         "in vec3 FragPos;\n"
         "uniform vec3 viewPos;\n"
         "uniform vec3 lightColor;\n"
+        "uniform float time;\n"                                                                      //COMMENT
         "void main()\n"
         "{\n"
             "float ambientStrength = 0.1;\n"
             "vec3 ambient = ambientStrength * lightColor;\n"
             "vec3 norm = normalize(Normal);\n"
             "vec3 lightDir = normalize(vec3(1, 1, 1));\n"
+            "float rotX = cos(time/2);\n"                                                              //COMMENT
+            "float rotY = sin(time/2);\n"                                                              //COMMENT
+            "lightDir = normalize(vec3(rotX - rotY, rotY + rotX, 1));\n"            //COMMENT
             "float diff = max(dot(norm, lightDir), 0.0);\n"
             "vec3 diffuse = diff * lightColor;\n"
             "float specularStrength = 0.5;\n"
@@ -538,6 +539,9 @@ void hw_3_4(const std::vector<std::string> &params) {
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
+        //float time = static_cast<float>(glfwGetTime());             //comment
+        float time = 0;
+
         // Taking input
         processInput(window);
 
@@ -569,6 +573,8 @@ void hw_3_4(const std::vector<std::string> &params) {
             glUniform3fv(viewPosLoc, 1, glm::value_ptr(cameraPos));
             unsigned int lightColorLoc = glGetUniformLocation(shaderProgram, "lightColor");
             glUniform3f(lightColorLoc, 1.0, 1.0, 1.0);
+            unsigned int timeLoc = glGetUniformLocation(shaderProgram, "time");
+            glUniform1f(timeLoc, time);                                                         // comment
 
             // bind VAO and draw
             glBindVertexArray(VAOList[i]);
